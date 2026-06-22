@@ -1,0 +1,135 @@
+---
+title: "movies_videogames"
+author: "Aglaia Kakoulidou"
+date: "2026-06-11"
+output: html_document
+---
+
+```{r loading libraries}
+library(tidytuesdayR) # load the data
+library(tidyverse) # dplyr and ggplot2
+library(ggrepel) # additional customization 
+library(ggExtra) # additional customization 
+library(stringr) # regular expressions
+library(forcats) # factors
+```
+Read the data 
+```{r}
+game_films <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2026/2026-06-09/game_films.csv')
+
+
+game_critic <- read_csv("games-data.csv")
+```
+
+```{r}
+# rename column name to title
+game_critic <- rename(game_critic,
+                      title = name)
+```
+
+```{r}
+# save the roman number for regex
+roman_numbers <- "(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII)"
+
+# save the replacement syntax for the regex
+replacements <- setNames(
+  rep("", 5),
+  c(
+    paste0("\\s+", roman_numbers, "$"),
+    paste0("\\s+", roman_numbers, ":.*$"),
+    ":\\s+.*$",
+    "[0-9]+:\\s+.*$",
+    "\\s+[0-9]+$"
+  )
+)
+
+# remove the numbers and redundant parts
+game_critic_2 <- game_critic |>
+  mutate(
+    title = str_replace_all(title, replacements) |> str_trim()) |> 
+  group_by(title) |>
+  mutate(mean_title_score = mean(score)) |>
+  ungroup()
+
+# keep the unique titles only
+game_films_2 <- game_films %>%
+  distinct(title, .keep_all = T)
+
+# keep only the first genre
+game_critic_2 <- game_critic_2 |>
+  mutate(genre = str_replace_all(genre, ",.*$", "")) |> 
+  # allow only five genre categories
+  mutate(genre = fct_lump(genre, n = 5))
+
+```
+
+
+```{r}
+game_films_2 <- left_join(game_films_2,
+                          game_critic_2,
+                          by = "title",
+                          relationship = "many-to-many") %>%
+  group_by(title) %>%
+  filter(users == max(users, na.rm = TRUE),
+         !is.na(score)) %>%
+  ungroup()
+```
+Now time to create the plot
+
+```{r fig.height=5, fig.width=5, warning=FALSE}
+# create the plot
+
+plot <- ggplot(game_films_2,
+       aes(x = rotten_tomatoes,
+           y = mean_title_score,
+           fill = genre)) +
+   geom_point(aes(size = users),
+             shape = 21,
+             alpha = 0.4, 
+             stroke = 0.7
+             ) +
+  #theme(legend.position = "none") +
+  geom_text_repel(aes(label = title),
+    family = "Poppins",
+    size = 3,
+    min.segment.length = 0, 
+    seed = 42, 
+    box.padding = 0.5,
+    max.overlaps = Inf,
+    arrow = arrow(length = unit(0.010, "npc")),
+    nudge_x = .2,
+    nudge_y = .6,
+    color = "grey50") +
+  scale_size_continuous(range = c(2,13), guide = "none") +
+  scale_color_brewer(palette = "Dark2")
+
+  
+plot
+```
+
+```{r warning=FALSE}
+# modify the aesthetics of the plot
+
+plot <- plot + theme(
+  
+  # add grid lines
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(color = "#b4aea9", linetype ="dashed"),
+      
+    # change the background
+    panel.background = element_rect(fill = "#fbf9f4", color = "#fbf9f4"),
+    plot.background = element_rect(fill = "#fbf9f4", color = "#fbf9f4")) +
+# change the axes
+  labs(
+    title = "Movie adaptations of popular video games",
+    x = "Movie rotten tomatoes score",
+    y = "Video game metacritic score"
+    )
+plot
+```
+
+```{r}
+ggsave("plot.png", plot, height = 7, dpi = 300)
+```
+
