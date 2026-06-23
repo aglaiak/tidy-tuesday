@@ -12,6 +12,10 @@ library(ggrepel) # additional customization
 library(ggExtra) # additional customization 
 library(stringr) # regular expressions
 library(forcats) # factors
+library(showtext) # for beautiful fonts
+font_add_google("Press Start 2P", "Press Start 2P")
+
+showtext_opts(dpi = 300)
 ```
 Read the data 
 ```{r}
@@ -52,7 +56,7 @@ game_critic_2 <- game_critic |>
   ungroup()
 
 # keep the unique titles only
-game_films_2 <- game_films %>%
+game_films_2 <- game_films |>
   distinct(title, .keep_all = T)
 
 # keep only the first genre
@@ -68,10 +72,10 @@ game_critic_2 <- game_critic_2 |>
 game_films_2 <- left_join(game_films_2,
                           game_critic_2,
                           by = "title",
-                          relationship = "many-to-many") %>%
-  group_by(title) %>%
+                          relationship = "many-to-many") |>
+  group_by(title) |>
   filter(users == max(users, na.rm = TRUE),
-         !is.na(score)) %>%
+         !is.na(score)) |>
   ungroup()
 ```
 Now time to create the plot
@@ -91,20 +95,28 @@ plot <- ggplot(game_films_2,
   #theme(legend.position = "none") +
   geom_text_repel(aes(label = title),
     family = "Poppins",
-    size = 3,
+    size = 4,
     min.segment.length = 0, 
     seed = 42, 
     box.padding = 0.5,
     max.overlaps = Inf,
     arrow = arrow(length = unit(0.010, "npc")),
-    nudge_x = .2,
-    nudge_y = .6,
+    nudge_x = 0.7,
+    nudge_y = 0.7,
     color = "grey50") +
-  scale_size_continuous(range = c(2,13), guide = "none") +
-  scale_color_brewer(palette = "Dark2")
-
+  scale_size_continuous(range = c(2,13)) +
+  scale_fill_brewer(palette = "Dark2") +
+labs(
+    title = "Movie adaptations of popular video games",
+    x = "Movie Rotten Tomatoes score",
+    y = "Video game Metacritic score",
+    caption = "Data: TidyTuesday 2026-06-09"
+  ) +
   
-plot
+  scale_x_continuous(expand = expansion(mult = 0.08)) +
+  # limits of y axis
+  scale_y_continuous(limits = c(45, 95))
+
 ```
 
 ```{r warning=FALSE}
@@ -112,24 +124,28 @@ plot
 
 plot <- plot + theme(
   
-  # add grid lines
+    # add gridlines
     panel.grid.minor = element_blank(),
     panel.grid.major.x = element_blank(),
-    panel.grid.major.y = element_line(color = "#b4aea9", linetype ="dashed"),
-      
-    # change the background
+    panel.grid.major.y = element_line(color = "#b4aea9", linetype = "dashed"),
+    
+    # add a different background color
     panel.background = element_rect(fill = "#fbf9f4", color = "#fbf9f4"),
-    plot.background = element_rect(fill = "#fbf9f4", color = "#fbf9f4")) +
-# change the axes
-  labs(
-    title = "Movie adaptations of popular video games",
-    x = "Movie rotten tomatoes score",
-    y = "Video game metacritic score"
+    plot.background = element_rect(fill = "#fbf9f4", color = "#fbf9f4"),
+    legend.background = element_rect(fill = "#fbf9f4", colour = "grey", linewidth = 0.3),
+    
+    # change the font of the title, increase the size and center
+    plot.title = element_text(family = "Press Start 2P", size = 14, hjust = 0.5),
+    # increase the size of the legend 
+    legend.text = element_text(size = 11),
+    axis.title.x = element_text(size = 13, margin = margin(t = 15)),
+    axis.title.y = element_text(size = 13,margin = margin(r = 15)),
+    legend.position = "bottom"
     )
-plot
+
 ```
 
 ```{r}
-ggsave("plot.png", plot, height = 7, dpi = 300)
+ggsave("plot.png", plot, height = 8, width = 11, dpi = 300)
 ```
 
